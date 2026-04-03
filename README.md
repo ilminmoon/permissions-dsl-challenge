@@ -1,5 +1,10 @@
 # authz-policy-engine
 
+가독성과 테스트 용이성을 위해 두 가지 버전의 작업물을 준비했습니다.  
+현재 `main` 브랜치는 reviewer가 과제 시나리오 JSON을 바로 보내보며 정책 엔진을 확인할 수 있는 제출용 버전입니다.
+
+JWT + PostgreSQL 기반의 minimal contract 버전과 DB-backed loader / write API를 포함한 나머지 작업물은 [`codex/internal-authz-loader`](https://github.com/ilminmoon/permissions-dsl-challenge/tree/codex/internal-authz-loader) 브랜치를 참고해주시면 감사하겠습니다.
+
 ## 프로젝트 개요
 
 이 프로젝트는 협업형 문서 플랫폼을 위한 권한 DSL 시스템 구현입니다.  
