@@ -18,9 +18,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PolicyEngineTest {
@@ -75,7 +76,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_VIEW)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertNull(decision.decisivePolicyId());
         assertEquals("Denied by default because no allow policy matched.", decision.finalReason());
         assertTrue(decision.trace().policyTraces().isEmpty());
@@ -102,7 +103,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_DELETE)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertEquals(
                 Set.of(
                         "document.deletedAt",
@@ -139,7 +140,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_VIEW)
         );
 
-        assertEquals(true, decision.allowed());
+        assertTrue(decision.allowed());
         assertEquals("allow_document_creator_all", decision.decisivePolicyId());
         assertTrue(decision.finalReason().contains("allow_document_creator_all"));
         assertNotNull(decision.trace());
@@ -176,7 +177,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_SHARE)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertEquals("deny_deleted_document_mutations", decision.decisivePolicyId());
         assertTrue(decision.finalReason().contains("Deleted documents cannot be edited, deleted, or shared."));
         assertEquals(1, decision.trace().policyTraces().size());
@@ -204,7 +205,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_DELETE)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertNull(decision.decisivePolicyId());
         assertEquals("Denied by default because no allow policy matched.", decision.finalReason());
         assertEquals(
@@ -241,7 +242,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_SHARE)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertEquals("deny_free_plan_share", decision.decisivePolicyId());
         assertEquals(
                 List.of("deny_deleted_document_mutations", "deny_private_project_non_member_access", "deny_free_plan_share"),
@@ -273,7 +274,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_SHARE)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertEquals("deny_free_plan_share", decision.decisivePolicyId());
         assertTrue(decision.finalReason().contains("Free-plan teams cannot change document sharing settings."));
         assertEquals(
@@ -307,7 +308,7 @@ class PolicyEngineTest {
                 AuthorizationTestSupport.request("u1", "d1", Permission.CAN_VIEW)
         );
 
-        assertEquals(false, decision.allowed());
+        assertFalse(decision.allowed());
         assertNull(decision.decisivePolicyId());
         assertEquals(
                 List.of("deny_private_project_non_member_access", "allow_document_creator_all", "allow_team_admin_view_edit_share", "allow_public_link_view", "allow_project_member_view"),

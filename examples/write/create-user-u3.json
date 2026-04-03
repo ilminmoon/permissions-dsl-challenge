@@ -1,0 +1,17 @@
+{
+  "id": "u3",
+  "email": "u3@example.com",
+  "name": "User Three",
+  "teamMemberships": [
+    {
+      "teamId": "t1",
+      "role": "viewer"
+    }
+  ],
+  "projectMemberships": [
+    {
+      "projectId": "p1",
+      "role": "editor"
+    }
+  ]
+}

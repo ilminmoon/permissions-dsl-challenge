@@ -1,17 +1,1 @@
-{
-  "user": { "id": "u1", "email": "creator@example.com", "name": "Creator" },
-  "team": { "id": "t2", "name": "Team t2", "plan": "pro" },
-  "project": { "id": "p2", "name": "Project p2", "teamId": "t2", "visibility": "private" },
-  "document": {
-    "id": "d2",
-    "title": "Document d2",
-    "projectId": "p2",
-    "creatorId": "u1",
-    "deletedAt": "2026-03-31T12:00:00Z",
-    "publicLinkEnabled": false
-  },
-  "teamMembership": { "userId": "u1", "teamId": "t2", "role": "admin" },
-  "projectMembership": { "userId": "u1", "projectId": "p2", "role": "admin" },
-  "permission": "can_edit",
-  "requestedAt": "2026-03-31T00:00:00Z"
-}
+{ "method": "GET", "path": "/v1/documents/d2/permissions/can_edit", "jwtSubject": "u1", "expectedAllowed": false }

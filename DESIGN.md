@@ -4,6 +4,8 @@
 
 This repository implements the core of a policy-based authorization system for a collaborative document platform.
 
+This branch keeps the same core DSL, policy model, and engine as the simpler reviewer-facing `main` branch, but swaps the HTTP boundary into a more production-like shape with JWT principal extraction and PostgreSQL-backed fact loading.
+
 The core design goal is to move permission logic out of scattered imperative code and into:
 
 - declarative, serializable policies
@@ -14,7 +16,7 @@ The core design goal is to move permission logic out of scattered imperative cod
 
 The core authorization system is a plain Java library.
 
-The repository also includes a thin HTTP wrapper so reviewers can exercise the engine with `curl` and JSON. That wrapper is intentionally a demo boundary, not the preferred production trust model.
+The repository also includes a thin HTTP wrapper so reviewers can exercise the engine with `curl` and a simple HTTP surface. That wrapper is intentionally a demo boundary, not the preferred production trust model.
 
 ## 2. Requirement Mapping
 
@@ -26,7 +28,7 @@ The repository also includes a thin HTTP wrapper so reviewers can exercise the e
 | Cross-platform structure | path-based DSL, normalized fact map, transport-independent engine |
 | Explainability | `AuthorizationDecision`, `DecisionTrace`, `PolicyTrace`, `ExpressionTrace` |
 | Deny-overrides and default deny | `PolicyEngine` orchestration |
-| Scenario-driven correctness | scenario tests plus REST example payload tests |
+| Scenario-driven correctness | scenario tests plus REST example fixture tests |
 
 ## 3. What Is Implemented
 
@@ -39,7 +41,9 @@ The current codebase includes:
 - a policy engine with required-data calculation, deny-first evaluation, and default deny
 - explanation and trace output for evaluated policies
 - unit tests and assignment scenario tests
-- a reviewer-facing REST wrapper and Docker run path for manual inspection
+- a reviewer-facing JWT-authenticated REST wrapper backed by PostgreSQL
+- reviewer-facing write endpoints for inserting teams, projects, users, and documents into the demo PostgreSQL dataset
+- Docker Compose wiring for seeded local execution
 
 ## 4. Architecture Overview
 
@@ -60,8 +64,8 @@ The current codebase includes:
 ```mermaid
 flowchart LR
     subgraph Callers["Callers"]
-        Test["Tests / Example Payloads"]
-        Future["Future App / Service Adapter"]
+        Test["Tests / Example Fixtures"]
+        Future["Future App Server / Service Adapter"]
         Rest["Reviewer REST Wrapper"]
     end
 
@@ -77,24 +81,30 @@ flowchart LR
         Loader["AuthorizationDataLoader"]
         Snapshot["AuthorizationSnapshot"]
         Facts["EvaluationContext / facts"]
+        Db["PostgreSQL"]
     end
 
-    subgraph Demo["Reviewer Demo Adapter"]
-        Payload["Scenario-style JSON payload"]
-        RequestContext["AuthorizationRequestContext"]
-        ContextLoader["RequestContextDataLoader"]
+    subgraph Demo["Reviewer HTTP Adapter"]
+        Route["GET path params"]
+        Write["POST JSON bodies"]
+        Jwt["JWT authenticator"]
+        Jdbc["JdbcAuthorizationDataLoader"]
+        Mutations["JdbcAuthorizationMutationService"]
     end
 
     Test --> Rest
     Future --> Rest
-    Rest --> Payload
-    Payload --> Request
-    Payload --> RequestContext
-    RequestContext --> ContextLoader
+    Rest --> Route
+    Rest --> Write
+    Rest --> Jwt
+    Jwt --> Request
     Request --> Engine
     Engine --> Policies
     Engine --> Loader
-    ContextLoader --> Loader
+    Jdbc --> Loader
+    Write --> Mutations
+    Db --> Mutations
+    Db --> Jdbc
     Loader --> Snapshot
     Snapshot --> Facts
     Facts --> Evaluator
@@ -108,27 +118,35 @@ flowchart LR
 - The evaluator does not know where data came from.
 - The policy engine does not know how persistence works.
 - Policies remain declarative data.
-- The HTTP layer only adapts JSON into the same request + loader contracts used by the core engine.
-- Even the reviewer-scoped request loader now respects `DataRequirement` and only materializes the normalized fact paths needed for the requested permission.
+- The HTTP layer only adapts an authenticated principal plus resource identifiers into the same request + loader contracts used by the core engine.
+- The JDBC loader respects `DataRequirement` and only materializes the normalized fact paths needed for the requested permission.
+- The write endpoints live beside the check endpoint for reviewer convenience, but they do not change the core engine contract. They only mutate PostgreSQL rows that the loader later reads.
 
 ## 5. Data Flow
+
+### 5.1 Permission-check flow
 
 ```mermaid
 sequenceDiagram
     participant C as Caller
     participant H as HTTP Wrapper
+    participant J as JWT Authenticator
     participant E as PolicyEngine
     participant L as AuthorizationDataLoader
+    participant P as PostgreSQL
     participant X as ExpressionEvaluator
 
-    C->>H: POST /v1/permission-checks with scenario-style payload
-    H->>H: validate payload shape and consistency
+    C->>H: GET /v1/documents/{documentId}/permissions/{permission}
+    C->>H: Authorization: Bearer <JWT>
+    H->>J: validate token and extract sub
+    J-->>H: userId
     H->>H: build AuthorizationRequest
-    H->>H: build AuthorizationRequestContext
     H->>E: authorize(request)
     E->>E: filter policies by permission
     E->>E: union requiredFacts
     E->>L: load(request, requirement)
+    L->>P: query document/project/team/memberships
+    P-->>L: trusted rows
     L-->>E: AuthorizationSnapshot
     E->>E: merge request facts + snapshot facts
 
@@ -150,6 +168,29 @@ sequenceDiagram
 
     E-->>H: allowed=false by default + trace
 ```
+
+### 5.2 Demo data write flow
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant H as HTTP Wrapper
+    participant V as Request Validator
+    participant M as AuthorizationMutationService
+    participant P as PostgreSQL
+
+    C->>H: POST /v1/teams, /v1/projects, /v1/users, or /v1/documents
+    C->>H: JSON body
+    H->>V: validate shape and required fields
+    V-->>H: normalized request
+    H->>M: create team / project / user / document
+    M->>P: insert rows in a transaction
+    P-->>M: persisted rows
+    M-->>H: creation result
+    H-->>C: 201 Created + persisted summary
+```
+
+The write API is intentionally narrow. It exists so reviewers can seed a few extra rows without editing SQL directly. It is not intended as a full resource-management API.
 
 ## 6. Domain Model
 
@@ -613,7 +654,7 @@ Trade-off:
 - pro: simple, deterministic, easy to review
 - con: duplicated information that could later be inferred from the expression tree
 
-The current reviewer-facing `RequestContextDataLoader` also honors `DataRequirement` when assembling the normalized fact map, so the demo path now demonstrates the same permission-scoped loading contract that the architecture describes.
+The current `JdbcAuthorizationDataLoader` also honors `DataRequirement`. It still loads the document/project/team base context in one join, but membership queries and fact materialization are permission-scoped rather than unconditional.
 
 ## 13. Explanation And Trace Design
 
@@ -673,14 +714,14 @@ Current limitation:
 
 The HTTP layer exists because it improves reviewer usability:
 
-- the assignment scenarios can be sent directly as JSON
-- the engine can be inspected with `curl` without extra setup
-- Docker can expose the same behavior consistently across environments
+- the engine can be inspected with `curl` without inventing a custom client
+- the request shape is small enough to feel like a real permission check API
+- Docker Compose can bring up both PostgreSQL and the app with seeded scenario data
 
 That convenience comes with an intentional boundary trade-off:
 
-- current `/v1/permission-checks` accepts richer scenario-style context than a production authorization service should normally trust
-- the wrapper is therefore a demo contract, not the preferred production contract
+- the current wrapper validates JWTs directly and talks to the seeded database itself
+- that is closer to production than the old full-context demo contract, but it is still not the most common deployment boundary
 
 The preferred production shape is:
 
@@ -690,17 +731,20 @@ The preferred production shape is:
 4. internal authorization layer receives only sanitized identifiers
 5. server-side loaders fetch richer facts from trusted sources
 
-In other words, the core engine is production-oriented, while the current HTTP surface is reviewer-oriented.
+In other words, the core engine and loader boundary are production-oriented, while the current HTTP surface is still reviewer-oriented because it collapses public-edge authentication and authorization into one demo service.
 
 ## 15. Test Coverage
 
-The repository includes four layers of tests:
+The repository includes multiple complementary test layers:
 
 - [DslJacksonRoundTripTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/dsl/DslJacksonRoundTripTest.java): DSL JSON shape and round-trip
 - [ExpressionEvaluatorTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/engine/ExpressionEvaluatorTest.java): tri-state and comparison semantics
 - [PolicyEngineTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/engine/PolicyEngineTest.java): deny precedence, required-data handling, creator allow, and default deny
 - [AuthorizationScenarioTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/scenario/AuthorizationScenarioTest.java): the six assignment scenarios
-- [RestExamplePayloadsTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/http/RestExamplePayloadsTest.java): reviewer-facing example payloads under `examples/rest`
+- [RestExamplePayloadsTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/http/RestExamplePayloadsTest.java): reviewer-facing request-spec fixtures under `examples/rest` (`method`, `path`, `jwtSubject`, expected outcome)
+- [AuthorizationHttpServerTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/http/AuthorizationHttpServerTest.java): HTTP route, JWT, error handling, and write-endpoint contract
+- [AuthorizationHttpFacadeTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/http/AuthorizationHttpFacadeTest.java): facade-level request adaptation for both checks and write flows
+- [WriteRequestValidatorTest.java](/Users/moon/Documents/proto/src/test/java/com/example/authz/http/WriteRequestValidatorTest.java): write request shape validation
 
 The scenario coverage explicitly includes:
 
@@ -737,26 +781,28 @@ The scenario coverage explicitly includes:
 - Boundary validation in the HTTP wrapper instead of the core engine:
   - keeps malformed-request handling close to JSON parsing and HTTP error reporting
   - means non-HTTP callers must construct valid domain requests themselves
-- Reviewer-facing full-context REST payload:
-  - makes the assignment scenarios directly reproducible
-  - is not the preferred production trust boundary
+- Reviewer-facing JWT + path-parameter REST contract:
+  - is closer to a real permission-check API than the old full-context demo payload
+  - still validates tokens in the same service for reviewer convenience, which is simpler than the most common app-server-fronted deployment model
 
 ## 17. Current Limitations
 
-- no production persistence adapter; tests use in-memory or request-scoped loaders
+- A JDBC/PostgreSQL loader exists and now runs behind a small pooled datasource with PostgreSQL session timeouts and batched-write tuning, but it still uses seeded local data rather than a richer repository/query layer
+- reviewer-facing write endpoints exist, but they are intentionally narrow and are meant for demo seeding rather than full CRUD
+- write-side authorization is not implemented yet; `POST /v1/teams`, `POST /v1/projects`, `POST /v1/users`, and `POST /v1/documents` are open reviewer utilities, not production-ready admin APIs
 - `requiredFacts` are validated eagerly, but they are still maintained manually rather than derived automatically from the expression tree
 - no recursive subexpression trace
 - no bulk authorization, list filtering, or caching layer
-- the current REST layer is a demo boundary, not a production API contract
-- the current REST layer accepts richer context than a production authorization service should normally trust
-- HTTP validation is intentionally structural, not a full business-validation framework
+- the current REST layer is still a demo boundary, not a final production API contract
+- JWT validation currently uses a local HS256 shared secret for reviewer convenience
+- HTTP validation is intentionally thin and leaves most authorization semantics to the core engine
 - no policy editing, hot reload, or external policy store
 
 ## 18. Future Improvements
 
 - derive required fact paths automatically from expressions so manual `requiredFacts` duplication can be reduced
 - enrich traces with recursive subexpression details
-- add SQL, repository-backed, or internal-service-backed loader adapters
+- add richer repository/query-service-backed loader adapters
 - add batch evaluation and caching
 - compile simple policy subsets into list-endpoint prefilters
 - add a production-oriented internal service contract that accepts only trusted minimal identifiers

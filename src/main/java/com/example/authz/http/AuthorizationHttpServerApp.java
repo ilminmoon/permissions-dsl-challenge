@@ -15,6 +15,11 @@ public final class AuthorizationHttpServerApp {
         registerShutdownHook(server);
         server.start();
         LOGGER.info("Authorization HTTP server listening on http://0.0.0.0:{}", server.port());
+        LOGGER.info("Permission checks: GET {}", AuthorizationHttpPaths.PERMISSION_CHECK_TEMPLATE);
+        LOGGER.info("Team creation: POST {}", AuthorizationHttpPaths.TEAMS);
+        LOGGER.info("Project creation: POST {}", AuthorizationHttpPaths.PROJECTS);
+        LOGGER.info("User creation: POST {}", AuthorizationHttpPaths.USERS);
+        LOGGER.info("Document creation: POST {}", AuthorizationHttpPaths.DOCUMENTS);
     }
 
     private static void registerShutdownHook(AuthorizationHttpServer server) {

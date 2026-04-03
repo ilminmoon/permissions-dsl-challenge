@@ -1,0 +1,12 @@
+{
+  "id": "d7",
+  "title": "Document Seven",
+  "projectId": "p1",
+  "creator": {
+    "id": "u3",
+    "email": "u3@example.com",
+    "name": "User Three"
+  },
+  "deletedAt": null,
+  "publicLinkEnabled": false
+}

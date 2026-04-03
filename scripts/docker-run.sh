@@ -2,8 +2,8 @@
 set -eu
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-IMAGE_NAME="${IMAGE_NAME:-authz-policy-engine:local}"
 PORT="${PORT:-8080}"
+DEMO_TOKEN="${DEMO_TOKEN:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1MSIsImlhdCI6MTc3NDkxMTYwMCwiZXhwIjo0MTAyNDQ0ODAwfQ.CamontEZemyd1HDeWeh9HoMgkEzaHMO4WP0GIYwgBXE}"
 
 PLATFORM="$(uname -s)"
 
@@ -25,11 +25,13 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building Docker image: $IMAGE_NAME"
-docker build -t "$IMAGE_NAME" "$ROOT_DIR"
-
-echo "Starting REST API on http://localhost:$PORT"
+echo "Starting PostgreSQL and REST API on http://localhost:$PORT"
 echo "Health check: curl http://localhost:$PORT/health"
-echo "Permission check example: curl -X POST http://localhost:$PORT/v1/permission-checks -H 'Content-Type: application/json' --data @examples/rest/scenario-1-can-view.json"
+echo "Demo JWT for user u1:"
+echo "$DEMO_TOKEN"
+echo "Permission check example: curl -H \"Authorization: Bearer \$DEMO_TOKEN\" http://localhost:$PORT/v1/documents/d1/permissions/can_view"
+echo "Create user example: curl -X POST -H \"Content-Type: application/json\" --data @examples/write/create-user-u3.json http://localhost:$PORT/v1/users"
+echo "Create document example: curl -X POST -H \"Content-Type: application/json\" --data @examples/write/create-document-d7.json http://localhost:$PORT/v1/documents"
 
-docker run --rm -p "$PORT:8080" "$IMAGE_NAME"
+cd "$ROOT_DIR"
+docker compose up --build

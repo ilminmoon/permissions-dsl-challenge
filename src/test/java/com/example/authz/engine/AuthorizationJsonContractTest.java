@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuthorizationJsonContractTest {
     private final ObjectMapper objectMapper = AuthorizationJson.newObjectMapper();
@@ -79,7 +80,7 @@ class AuthorizationJsonContractTest {
         String json = objectMapper.writeValueAsString(decision);
         JsonNode node = objectMapper.readTree(json);
 
-        assertEquals(true, node.get("allowed").asBoolean());
+        assertTrue(node.get("allowed").asBoolean());
         assertEquals("can_view", node.get("permission").asText());
         assertEquals("allow_project_member_view", node.get("decisivePolicyId").asText());
         assertEquals(

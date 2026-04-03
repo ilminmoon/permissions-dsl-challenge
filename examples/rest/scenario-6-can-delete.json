@@ -1,15 +1,1 @@
-{
-  "user": { "id": "u1", "email": "guest@example.com", "name": "Guest" },
-  "team": { "id": "t6", "name": "Team t6", "plan": "pro" },
-  "project": { "id": "p6", "name": "Project p6", "teamId": "t6", "visibility": "private" },
-  "document": {
-    "id": "d6",
-    "title": "Document d6",
-    "projectId": "p6",
-    "creatorId": "u2",
-    "deletedAt": null,
-    "publicLinkEnabled": true
-  },
-  "permission": "can_delete",
-  "requestedAt": "2026-03-31T00:00:00Z"
-}
+{ "method": "GET", "path": "/v1/documents/d6/permissions/can_delete", "jwtSubject": "u1", "expectedAllowed": false }

@@ -31,9 +31,12 @@ Thumbs.db
 # Local environment / temp files
 .env
 .env.*
+.envrc
 *.local
 tmp/
 temp/
+docker-compose.override.yml
+compose.override.yml
 
 # Editor temp files
 *.swp

@@ -1156,3 +1156,162 @@
 ### Accepted result
 
 - Reviewer-facing documents are now more consistent with the shipped artifact, current HTTP contract, and current policy-validation behavior.
+
+## 2026-04-02 - Move reviewer HTTP flow to JWT plus PostgreSQL
+
+### Prompt
+
+- Create a new branch for a more production-like HTTP integration path.
+- Replace the full-context request body with a minimal permission-check surface that reads the user identity from a JWT and takes `documentId` plus `permission` from the request path.
+- Keep the core policy engine unchanged, but move trusted fact assembly into a PostgreSQL-backed loader.
+- Add Docker Compose with seeded PostgreSQL data so the six assignment scenarios can still be exercised locally.
+- Update tests, example fixtures, and reviewer-facing documentation to match the new contract.
+
+### Codex output summary
+
+- Replaced the old `POST /v1/permission-checks` full-context payload with `GET /v1/documents/{documentId}/permissions/{permission}` plus `Authorization: Bearer <JWT>`.
+- Added an `HmacJwtAuthenticator` that validates HS256 tokens and extracts `sub` as the principal user id.
+- Added `JdbcAuthorizationDataLoader`, PostgreSQL datasource config/factory, and runtime wiring that loads document, project, team, and membership facts from the database.
+- Added Docker Compose plus schema/seed SQL for the six assignment scenarios.
+- Updated the example fixtures under `examples/rest` so they now represent minimal request cases and expected outcomes rather than raw HTTP bodies.
+- Reworked HTTP tests around the new JWT, route-parsing, and minimal-request behavior.
+
+### Human decisions / corrections
+
+- Kept JWT validation inside the same service for reviewer convenience even though the preferred production boundary is still “app server validates first, internal authz checks second.”
+- Chose plain JDBC with a small seeded schema rather than adding a larger repository abstraction or ORM, so the change stays focused on the trust boundary and data-loading split.
+- Kept example fixtures as JSON files even though the API is now body-less, because they still serve as easy-to-read request/expectation fixtures for tests and reviewers.
+
+### Accepted result
+
+- The reviewer-facing HTTP wrapper is now much closer to a real minimal authorization API, while the core engine and DSL remain transport-independent.
+
+## 2026-04-02 - Add reviewer write APIs on top of PostgreSQL-backed HTTP flow
+
+### Prompt
+
+- Extend the current DB-backed reviewer HTTP surface with a small set of write endpoints.
+- Add a user-creation API that can persist the user plus membership rows.
+- Add a document-creation API that can persist the document and, when needed, its creator profile.
+- Keep the authorization engine unchanged; the new functionality should live at the HTTP + JDBC boundary only.
+- Update tests, runnable examples, and reviewer-facing docs so the new POST endpoints are easy to exercise.
+
+### Codex output summary
+
+- Added `POST /v1/users` with JSON validation and JDBC persistence for the user row plus team/project memberships.
+- Added `POST /v1/documents` with JSON validation and JDBC persistence for the document row plus creator upsert-or-verify behavior.
+- Added `JdbcAuthorizationMutationService`, `ConflictException`, and write DTO/response models.
+- Extended the HTTP server and facade so write paths remain separate from the core permission-check engine.
+- Added unit and HTTP tests for write request validation, success paths, and conflict handling.
+- Added sample JSON payloads under `examples/write` and updated README/script guidance.
+
+### Human decisions / corrections
+
+- Kept the write surface intentionally narrow: only user insertion with memberships and document insertion with creator info, because the assignment is still centered on authorization rather than full CRUD modeling.
+- Chose transaction-based JDBC writes with simple conflict/resource checks instead of introducing an ORM or a larger repository layer.
+- Left team and project lifecycle outside the new API surface and continued to treat them as seeded reference data for the demo environment.
+
+### Accepted result
+
+- Reviewers can now add a user and a document through REST, then immediately verify authorization outcomes against the same PostgreSQL-backed loader used by the check endpoint.
+
+## 2026-04-02 - Rewrite reviewer-facing docs for the DB-backed HTTP shape
+
+### Prompt
+
+- Rework `README.md` and `DESIGN.md` so they read cleanly from top to bottom after the move to JWT plus PostgreSQL and the addition of small write APIs.
+- Keep the reviewer run path simple and explicit.
+- Make the distinction between the demo HTTP surface and the preferred production trust model easier to understand.
+- Clarify that the write endpoints are reviewer utilities and not production-ready admin APIs.
+
+### Codex output summary
+
+- Rewrote `README.md` so the execution path, sample calls, fixture locations, and limitations are easier to scan.
+- Reduced repetition in the README limitations section and made the write-authorization gap explicit.
+- Updated `DESIGN.md` test coverage and limitations so the new write path and its current boundaries are documented directly.
+
+### Human decisions / corrections
+
+- Kept `README.md` in Korean because the rest of the submission-facing documentation already follows that tone.
+- Left `DESIGN.md` in English because it already functioned as the deeper architecture review document and the language was consistent there.
+
+### Accepted result
+
+- The docs now better reflect the current branch state and make the demo-vs-production boundary easier for a reviewer to follow.
+
+## 2026-04-02 - Improve PostgreSQL runtime ergonomics on the DB-backed branch
+
+### Prompt
+
+- Review the PostgreSQL-backed `internal-authz-loader` variant and improve the database integration beyond the current “basic JDBC + direct datasource” level.
+- Keep the HTTP contract and core policy engine unchanged.
+- Focus on practical runtime improvements such as connection management, query path efficiency, write-path batching, and safer operational defaults.
+- Add or update tests so the new PostgreSQL behavior is intentionally verified rather than implied.
+
+### Codex output summary
+
+- Replaced the raw PostgreSQL datasource with a small HikariCP-backed pooled datasource.
+- Extended PostgreSQL runtime configuration with application name, session timeouts, pool sizing, and batched-insert rewrite controls.
+- Applied PostgreSQL session-level `statement_timeout` and `idle_in_transaction_session_timeout` settings through datasource startup options.
+- Kept the earlier single-query document/project/team/membership lookup and batched membership inserts, then added tests around config parsing and pooled datasource creation.
+- Updated the branch documentation so it no longer claims that connection pooling is only future work.
+
+### Human decisions / corrections
+
+- Kept the runtime adapter intentionally modest: no ORM, no Flyway, and no heavy repository abstraction, because the branch should still stay focused on the authorization boundary rather than turn into a full data-platform exercise.
+- Chose HikariCP rather than hand-rolled pooling so the improvement would be recognizable, conventional, and small in code size.
+- Left the database as seeded local demo data even after the runtime improvements; production-grade data ownership and richer query services remain outside the scope of this branch.
+
+### Accepted result
+
+- The DB-backed branch now looks less like a minimal JDBC demo and more like a realistic small internal service adapter, while keeping the core DSL and policy engine unchanged.
+
+## 2026-04-02 - Add team and project write endpoints to the DB-backed branch
+
+### Prompt
+
+- The DB-backed branch still lets reviewers create users and documents, but teams and projects remain seeded-only.
+- Close that gap so the demo write surface covers the core domain graph more coherently.
+- Add reviewer-facing team and project creation endpoints on the same HTTP + JDBC boundary.
+- Keep the policy engine unchanged and update tests, examples, and docs to match the expanded write surface.
+
+### Codex output summary
+
+- Added `POST /v1/teams` and `POST /v1/projects` with request DTOs, validation, facade wiring, and JDBC persistence.
+- Extended `AuthorizationMutationService` and `JdbcAuthorizationMutationService` so team and project creation participate in the same transactional mutation boundary as existing user/document writes.
+- Updated root-document metadata, server route registration, and startup logs so the new endpoints are visible to reviewers.
+- Added validator, facade, and server tests for the new write paths and refreshed README/DESIGN usage text.
+- Added example payloads under `examples/write` for creating a team and a project.
+
+### Human decisions / corrections
+
+- Added both team and project creation together instead of only team creation, because documents and memberships depend on projects and the write surface would still feel incomplete otherwise.
+- Kept the new endpoints limited to create-only semantics and did not extend the branch into full CRUD.
+- Continued to treat these endpoints as reviewer seeding utilities rather than production-grade admin APIs.
+
+### Accepted result
+
+- The DB-backed branch now exposes a more coherent minimal resource seeding surface: teams, projects, users, and documents can all be inserted through the same reviewer-facing adapter.
+
+## 2026-04-02 - Reformat permission-check fixtures for the JWT + GET contract
+
+### Prompt
+
+- The `examples/rest` fixtures still look like the old body-based request shape even though this branch now uses `GET /v1/documents/{documentId}/permissions/{permission}` plus bearer JWTs.
+- Rework those fixtures so they describe the actual HTTP contract more directly.
+- Update the fixture test and any docs that describe the fixture format.
+
+### Codex output summary
+
+- Rewrote all `examples/rest/*.json` files from `{ documentId, permission, ... }` into request-spec fixtures with `method`, `path`, `jwtSubject`, and expected result fields.
+- Updated `RestExamplePayloadsTest` so it parses the path with the real route parser and generates the JWT from the fixture subject.
+- Clarified in `README.md` and `DESIGN.md` that these files are request-spec fixtures rather than raw HTTP bodies.
+
+### Human decisions / corrections
+
+- Kept the directory name `examples/rest` to avoid churn in references and reviewer navigation, even though the files now model a body-less GET contract.
+- Used `jwtSubject` instead of embedding a literal token string in every fixture so the examples stay readable and don’t duplicate token material everywhere.
+
+### Accepted result
+
+- The permission-check examples now match the actual JWT + path-parameter API shape instead of looking like leftover body payloads.
