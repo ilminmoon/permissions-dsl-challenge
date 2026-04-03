@@ -1,9 +1,9 @@
 # authz-policy-engine
 
 가독성과 테스트 용이성을 위해 두 가지 버전의 작업물을 준비했습니다.  
-현재 `main` 브랜치는 reviewer가 과제 시나리오 JSON을 바로 보내보며 정책 엔진을 확인할 수 있는 제출용 버전입니다.
+현재 `main` 브랜치는 과제 시나리오를 reviewer가 가장 직접적으로 따라가볼 수 있도록, 시나리오 JSON을 바로 보내며 정책 결과를 확인하는 제출용 버전입니다. 과제 요구사항과 시나리오 재현성을 우선해 읽기 쉽고 검증하기 쉬운 형태로 정리했습니다.
 
-JWT + PostgreSQL 기반의 minimal contract 버전과 DB-backed loader / write API를 포함한 나머지 작업물은 [`codex/internal-authz-loader`](https://github.com/ilminmoon/permissions-dsl-challenge/tree/codex/internal-authz-loader) 브랜치를 참고해주시면 감사하겠습니다.
+반면 [`codex/internal-authz-loader`](https://github.com/ilminmoon/permissions-dsl-challenge/tree/codex/internal-authz-loader) 브랜치는 같은 코어 정책 엔진을 더 production-like한 경계로 감싼 대안 버전입니다. 이 브랜치에는 JWT principal, PostgreSQL-backed minimal contract, server-side data loading, reviewer용 write API까지 포함되어 있으니, “실서비스에 더 가까운 HTTP/DB 경계에서는 어떻게 바꿀 수 있는가”를 함께 보시려면 해당 브랜치를 참고해주시면 감사하겠습니다.
 
 ## 프로젝트 개요
 
