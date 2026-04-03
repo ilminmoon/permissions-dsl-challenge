@@ -1,0 +1,9 @@
+# Exclude everything by default and allow only the files required for the image build.
+**
+!.dockerignore
+!Dockerfile
+!.mvn/**
+!mvnw
+!pom.xml
+!src/**
+!examples/**

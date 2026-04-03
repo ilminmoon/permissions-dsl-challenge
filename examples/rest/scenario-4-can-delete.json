@@ -1,0 +1,16 @@
+{
+  "user": { "id": "u1", "email": "admin@example.com", "name": "Team Admin" },
+  "team": { "id": "t4", "name": "Team t4", "plan": "pro" },
+  "project": { "id": "p4", "name": "Project p4", "teamId": "t4", "visibility": "private" },
+  "document": {
+    "id": "d4",
+    "title": "Document d4",
+    "projectId": "p4",
+    "creatorId": "u2",
+    "deletedAt": null,
+    "publicLinkEnabled": false
+  },
+  "teamMembership": { "userId": "u1", "teamId": "t4", "role": "admin" },
+  "permission": "can_delete",
+  "requestedAt": "2026-03-31T00:00:00Z"
+}

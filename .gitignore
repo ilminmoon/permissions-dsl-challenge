@@ -1,0 +1,43 @@
+# Maven / Java build outputs
+target/
+dist/*
+*.class
+*.jar
+*.war
+*.ear
+!dist/authz-policy-engine-0.0.1-SNAPSHOT.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# JVM crash dumps
+hs_err_pid*
+replay_pid*
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local environment / temp files
+.env
+.env.*
+*.local
+tmp/
+temp/
+
+# Editor temp files
+*.swp
+*.swo
+*~
+*.orig
+*.rej
